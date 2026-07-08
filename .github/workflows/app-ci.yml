@@ -1,0 +1,49 @@
+name: TechX App CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compose-config:
+    name: Validate Docker Compose config
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Render Docker Compose config
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > .env.override <<'EOF'
+          IMAGE_NAME=example.com/son-techx-corp
+          IMAGE_VERSION=sha-ci
+          DEMO_VERSION=sha-ci
+          EOF
+          docker compose --env-file .env --env-file .env.override -f docker-compose.yml config > /tmp/docker-compose-rendered.yml
+
+  frontend-ci:
+    name: Frontend dependency check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci

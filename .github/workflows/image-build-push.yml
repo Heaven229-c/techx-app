@@ -1,0 +1,101 @@
+name: Build And Push TechX Images
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      image_version:
+        description: "Image version prefix. Empty = sha-<commit12>"
+        required: false
+        default: ""
+      platforms:
+        description: "Container platforms"
+        required: false
+        default: "linux/amd64"
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'ap-southeast-1' }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY || 'son-techx-corp' }}
+
+jobs:
+  build:
+    name: Build all app images from source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve image metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACCOUNT_ID="${{ vars.AWS_ACCOUNT_ID }}"
+          if [ -z "$ACCOUNT_ID" ]; then
+            ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          fi
+          INPUT_IMAGE_VERSION="${{ github.event.inputs.image_version }}"
+          if [ -z "$INPUT_IMAGE_VERSION" ]; then
+            IMAGE_VERSION="sha-${GITHUB_SHA::12}"
+          else
+            IMAGE_VERSION="$INPUT_IMAGE_VERSION"
+          fi
+          PLATFORMS="${{ github.event.inputs.platforms }}"
+          if [ -z "$PLATFORMS" ]; then
+            PLATFORMS="linux/amd64"
+          fi
+          ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          ECR_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}"
+          echo "ACCOUNT_ID=$ACCOUNT_ID" >> "$GITHUB_ENV"
+          echo "IMAGE_VERSION=$IMAGE_VERSION" >> "$GITHUB_ENV"
+          echo "PLATFORMS=$PLATFORMS" >> "$GITHUB_ENV"
+          echo "ECR_REGISTRY=$ECR_REGISTRY" >> "$GITHUB_ENV"
+          echo "ECR_URI=$ECR_URI" >> "$GITHUB_ENV"
+
+      - name: Login to ECR
+        shell: bash
+        run: |
+          aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" --region "$AWS_REGION"
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Generate CI env override
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > .env.override <<EOF
+          IMAGE_NAME=${ECR_URI}
+          IMAGE_VERSION=${IMAGE_VERSION}
+          DEMO_VERSION=${IMAGE_VERSION}
+          EOF
+
+      - name: Build and push all images
+        shell: bash
+        run: |
+          set -euo pipefail
+          set -a
+          . ./.env
+          . ./.env.override
+          set +a
+          docker buildx bake -f docker-compose.yml --push --set "*.platform=${PLATFORMS}"
+
+      - name: Image summary
+        run: |
+          echo "ECR_URI=${ECR_URI}"
+          echo "IMAGE_VERSION=${IMAGE_VERSION}"
+          echo "Helm tag prefix will be: ${IMAGE_VERSION}"
