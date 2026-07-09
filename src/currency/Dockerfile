@@ -37,12 +37,12 @@ RUN git clone --depth 1 --branch v${OPENTELEMETRY_CPP_VERSION} https://github.co
 WORKDIR /currency
 
 COPY ./src/currency/build/ build/
-COPY ./src/currency/proto/ proto/
 COPY ./src/currency/src/ src/
 
 COPY ./src/currency/genproto/CMakeLists.txt genproto/CMakeLists.txt
 COPY ./src/currency/CMakeLists.txt CMakeLists.txt
 
+RUN mkdir -p proto
 COPY ./pb/demo.proto proto/demo.proto
 
 RUN mkdir -p build && cd build \
