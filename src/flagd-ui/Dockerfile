@@ -43,9 +43,7 @@ ENV HEX_HTTP_TIMEOUT=120
 
 # install mix dependencies
 COPY ./src/flagd-ui/mix.exs ./src/flagd-ui/mix.lock ./
-RUN mix hex.config http_concurrency 1 \
-  && mix hex.config http_timeout 120 \
-  && mix deps.get --only $MIX_ENV --locked
+RUN mix deps.get --only $MIX_ENV --locked
 RUN mkdir config
 
 # copy compile-time config files before we compile dependencies
