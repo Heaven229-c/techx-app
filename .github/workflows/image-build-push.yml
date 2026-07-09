@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       image_version:
-        description: "Image version prefix. Empty = sha-<commit12>"
+        description: "Image version prefix. Empty = sha-<commit12>-run-<run_id>-<attempt>"
         required: false
         default: ""
       platforms:
@@ -46,7 +46,7 @@ jobs:
           fi
           INPUT_IMAGE_VERSION="${{ github.event.inputs.image_version }}"
           if [ -z "$INPUT_IMAGE_VERSION" ]; then
-            IMAGE_VERSION="sha-${GITHUB_SHA::12}"
+            IMAGE_VERSION="sha-${GITHUB_SHA::12}-run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           else
             IMAGE_VERSION="$INPUT_IMAGE_VERSION"
           fi
@@ -56,6 +56,13 @@ jobs:
           fi
           ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
           ECR_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}"
+          if aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageTag="${IMAGE_VERSION}-image-provider" \
+            --region "$AWS_REGION" >/dev/null 2>&1; then
+            echo "::error::Image tag prefix '${IMAGE_VERSION}' already exists in ECR. ECR tags are immutable, so rerun with empty image_version or choose a new unique prefix."
+            exit 1
+          fi
           echo "ACCOUNT_ID=$ACCOUNT_ID" >> "$GITHUB_ENV"
           echo "IMAGE_VERSION=$IMAGE_VERSION" >> "$GITHUB_ENV"
           echo "PLATFORMS=$PLATFORMS" >> "$GITHUB_ENV"
