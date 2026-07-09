@@ -18,11 +18,14 @@ RUN composer install \
     --no-dev \
     --prefer-dist
 
-FROM docker.io/library/php:8.4-cli-alpine3.22
+FROM docker.io/library/php:8.3-cli-alpine3.21
 
 COPY --from=installer /usr/bin/install-php-extensions /usr/local/bin/
 
-RUN install-php-extensions opcache pcntl protobuf opentelemetry
+ENV IPE_PROCESSOR_COUNT=1
+
+RUN install-php-extensions opcache pcntl protobuf
+RUN install-php-extensions opentelemetry
 
 WORKDIR /var/www
 
