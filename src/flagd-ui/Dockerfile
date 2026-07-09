@@ -25,7 +25,8 @@ FROM ${BUILDER_IMAGE} AS builder
 
 # install build dependencies
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends build-essential git \
+  && apt-get install -y --no-install-recommends build-essential git ca-certificates curl openssl \
+  && update-ca-certificates \
   && rm -rf /var/lib/apt/lists/*
 
 # prepare build dir
@@ -37,10 +38,14 @@ RUN mix local.hex --force \
 
 # set build ENV
 ENV MIX_ENV="prod"
+ENV HEX_HTTP_CONCURRENCY=1
+ENV HEX_HTTP_TIMEOUT=120
 
 # install mix dependencies
 COPY ./src/flagd-ui/mix.exs ./src/flagd-ui/mix.lock ./
-RUN mix deps.get --only $MIX_ENV
+RUN mix hex.config http_concurrency 1 \
+  && mix hex.config http_timeout 120 \
+  && mix deps.get --only $MIX_ENV --locked
 RUN mkdir config
 
 # copy compile-time config files before we compile dependencies
