@@ -34,6 +34,11 @@ out/
 build
 next-env.d.ts
 vendor/
+!src/flagd-ui/assets/vendor/
+!src/flagd-ui/assets/vendor/heroicons.js
+!src/flagd-ui/assets/vendor/topbar.js
+!src/flagd-ui/assets/vendor/daisyui.js
+!src/flagd-ui/assets/vendor/daisyui-theme.js
 composer.lock
 .venv
 .dockerhub.env
