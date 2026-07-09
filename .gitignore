@@ -17,6 +17,10 @@ docker-compose.override.yml
 .settings
 
 bin/
+!src/flagd-ui/rel/
+!src/flagd-ui/rel/overlays/
+!src/flagd-ui/rel/overlays/bin/
+!src/flagd-ui/rel/overlays/bin/server
 obj/
 .vs/
 .vscode

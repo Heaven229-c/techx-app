@@ -1,0 +1,5 @@
+#!/bin/sh
+set -eu
+
+export PHX_SERVER=true
+exec /app/bin/flagd_ui start
